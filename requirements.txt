@@ -1,3 +1,4 @@
+aiofiles==0.7.0
 anyio==3.3.2
 asgi-lifespan==1.0.1
 asgiref==3.4.1
@@ -22,6 +23,8 @@ hypothesis==6.23.1
 idna==3.2
 iniconfig==1.1.1
 isort==5.9.3
+Jinja2==3.0.1
+MarkupSafe==2.0.1
 mccabe==0.6.1
 mirakuru==2.4.1
 multidict==5.1.0
