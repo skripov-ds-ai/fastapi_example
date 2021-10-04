@@ -2,7 +2,12 @@ from typing import Optional
 
 import asyncpg
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
 
 DB_HOST = "localhost"
 DB_DATABASE = "postgres"
@@ -61,6 +66,7 @@ async def get_db():
 
 app: FastAPI = FastAPI()
 db: Optional[asyncpg.Pool] = None
+templates = Jinja2Templates(directory="templates")
 
 
 async def get_pool() -> asyncpg.Pool:
@@ -81,20 +87,35 @@ async def shutdown():
     if db:
         await db.close()
         db = None
-    print(f"DB = {db}")
 
 
-@app.get("/")
+async def get_user_by_username(connection, username):
+    async with connection.transaction():
+        result = await connection.fetchrow(
+            f"SELECT * FROM {DB_TABLE} WHERE username = $1", username
+        )
+        return dict(result)
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index_page(request: Request, pool: asyncpg.Pool = Depends(get_pool)):
+    async with pool.acquire() as connection:
+        user = await get_user_by_username(connection, "admin")
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
+
+
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_exception_handler(request, exc):
+    return templates.TemplateResponse("404.html", {"request": request})
+
+
+@app.get("/api/home")
 async def homepage(pool: asyncpg.Pool = Depends(get_pool)):
     async with pool.acquire() as connection:
-        async with connection.transaction():
-            result = await connection.fetchrow(
-                f"SELECT * FROM {DB_TABLE} WHERE username = $1", "admin"
-            )
-            return dict(result)
+        return await get_user_by_username(connection, "admin")
 
 
-@app.get("/create_user_by_get")
+@app.get("/api/create_user_by_get")
 async def create_user_by_get(
     username: str,
     password: str,
@@ -122,11 +143,7 @@ async def create_user_by_get(
             rights,
             enabled,
         )
-        async with connection.transaction():
-            result = await connection.fetchrow(
-                f"SELECT * FROM {DB_TABLE} WHERE username = $1", username
-            )
-            return dict(result)
+        return await get_user_by_username(connection, username)
 
 
 if __name__ == "__main__":

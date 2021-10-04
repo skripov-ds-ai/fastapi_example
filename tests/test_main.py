@@ -42,7 +42,7 @@ def admin_params():
 
 async def create_user_template(params):
     async with TestClient(app) as ac:
-        response = await ac.get("/create_user_by_get", query_string=params)
+        response = await ac.get("/api/create_user_by_get", query_string=params)
     assert_json(response, params)
 
 
@@ -66,7 +66,7 @@ def user_params_dict(
 @pytest.mark.asyncio
 async def test_root(admin_params):
     async with TestClient(app) as ac:
-        response = await ac.get("/")
+        response = await ac.get("/api/home")
     assert_json(response, admin_params)
 
 
