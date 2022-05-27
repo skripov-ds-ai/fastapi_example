@@ -2,7 +2,11 @@ from typing import Optional
 
 import asyncpg
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+
+# import strawberry
+# from strawberry.asgi import GraphQL
+
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -17,6 +21,14 @@ DB_TABLE = "users"
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "some_password"
+
+
+# @strawberry.type
+# class UserModel:
+#     rights: str
+#     enabled: str
+#     username: str
+#     password: str
 
 
 async def init_pool():
@@ -67,6 +79,10 @@ async def get_db():
 app: FastAPI = FastAPI()
 db: Optional[asyncpg.Pool] = None
 templates = Jinja2Templates(directory="templates")
+# schema = strawberry.Schema(query=UserModel)
+# graphql_app = GraphQL(schema)
+# app.add_route("/graphql", graphql_app)
+# app.add_websocket_route("/graphql", graphql_app)
 
 
 async def get_pool() -> asyncpg.Pool:
@@ -97,11 +113,24 @@ async def get_user_by_username(connection, username):
         return dict(result)
 
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request, pool: asyncpg.Pool = Depends(get_pool)):
     async with pool.acquire() as connection:
         user = await get_user_by_username(connection, "admin")
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
 
 
 @app.exception_handler(StarletteHTTPException)
